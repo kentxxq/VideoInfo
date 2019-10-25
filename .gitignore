@@ -5,3 +5,4 @@
 .vscode
 __pycache__
 .envrc
+VideoInfo.egg-info
