@@ -5,6 +5,7 @@ import struct
 from .parse import Box
 from construct.lib.container import Container
 from .VideoBase import VideoBase
+from typing import Tuple
 
 
 class Mp4Url(VideoBase):
@@ -20,28 +21,38 @@ class Mp4Url(VideoBase):
         """
         while True:
             size, flag = self._findMoov()
-            if flag == 'moov':
+            if flag == "moov":
                 break
             else:
                 self.seek += size
 
         data = self._getMoov(size)
         for child in data.children:
-            if child.type == b'mvhd':
+            if child.type == b"mvhd":
                 self.duration = int(child.duration / child.timescale)
-            if child.type == b'trak':
-                results = child.search_all('type')
-                if b'smhd' in results:
-                    self.balance = child.search_all('balance')[0]
-                if b'vmhd' in results:
-                    width = child.search_all('width')[0]
-                    height = child.search_all('height')[0]
+            if child.type == b"trak":
+                results = child.search_all("type")
+                if b"smhd" in results:
+                    self.balance = child.search_all("balance")[0]
+                if b"vmhd" in results:
+                    width = child.search_all("width")[0]
+                    height = child.search_all("height")[0]
 
-                    self.width = int(bytes(bin(width).replace('0b', '').zfill(32)[:16], encoding='ascii'),
-                                     base=2)
-                    self.height = int(bytes(bin(height).replace('0b', '').zfill(32)[:16], encoding='ascii'),
-                                      base=2)
-                    self.sample_count = child.search_all('sample_count')[0]
+                    self.width = int(
+                        bytes(
+                            bin(width).replace("0b", "").zfill(32)[:16],
+                            encoding="ascii",
+                        ),
+                        base=2,
+                    )
+                    self.height = int(
+                        bytes(
+                            bin(height).replace("0b", "").zfill(32)[:16],
+                            encoding="ascii",
+                        ),
+                        base=2,
+                    )
+                    self.sample_count = child.search_all("sample_count")[0]
 
     @property
     def framerate(self) -> int:
@@ -54,19 +65,18 @@ class Mp4Url(VideoBase):
         return boxdata
 
     def _setHeaders(self, seek: int, size: int):
-        self.sender.headers['Range'] = f'bytes={seek}-{seek + size - 1}'
+        self.sender.headers["Range"] = f"bytes={seek}-{seek + size - 1}"
 
     def _sendRequest(self) -> bytes:
         try:
-            data = self.sender.get(url=self.url, stream=True,
-                                   timeout=6).raw.read()
+            data = self.sender.get(url=self.url, stream=True, timeout=6).raw.read()
         except requests.Timeout:
-            raise self.url + '连接超时:超过6秒(默认)服务器没有响应任何数据！'
+            raise self.url + "连接超时:超过6秒(默认)服务器没有响应任何数据！"
         return data
 
-    def _findMoov(self) -> (int, str):
+    def _findMoov(self) -> Tuple[int, str]:
         self._setHeaders(self.seek, 8)
         data = self._sendRequest()
-        size = int(struct.unpack('>I', data[:4])[0])
-        flag = data[-4:].decode('ascii')
-        return size, flag
+        size = int(struct.unpack(">I", data[:4])[0])
+        flag = data[-4:].decode("ascii")
+        return (size, flag)
